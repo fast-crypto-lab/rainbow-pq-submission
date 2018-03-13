@@ -247,14 +247,14 @@ return 1;
 	return rainbow_ivs_central_map_16323232_avx2(r,k,a);
 #endif
 
-	uint8_t mat1[_O1*_O1_BYTE] __attribute__((aligned(32)));
+	uint8_t mat1[_O1*_O1] __attribute__((aligned(32)));
 	uint8_t temp[_O1_BYTE] __attribute__((aligned(32)));
 	mpkc_pub_map_gf16_n_m( temp , k->l1_vv , r , _V1 , _O1 );
 	gf256v_add( temp  , a , _O1_BYTE );
 	gen_l1_mat( mat1 , k , r );
 	unsigned r1 = linear_solver_l1( r+_V1_BYTE , mat1 , temp );
 
-	uint8_t mat2[_O2*_O2_BYTE] __attribute__((aligned(32)));
+	uint8_t mat2[_O2*_O2] __attribute__((aligned(32)));
 	uint8_t temp2[_O2_BYTE] __attribute__((aligned(32)));
 	gen_l2_mat( mat2 , k , r );
 	mpkc_pub_map_gf16_n_m( temp2 , k->l2_vv , r , _V2 , _O2 );
@@ -278,8 +278,8 @@ int rainbow_sign( uint8_t * signature , const uint8_t * _sk , const uint8_t * _d
 	const rainbow_key * sk = (const rainbow_key *)_sk;
 	const rainbow_ckey * k = &( sk->ckey);
 //// line 1 - 5
-	uint8_t mat_l1[_O1*_O1_BYTE] __attribute__((aligned(32)));
-	uint8_t mat_l2[_O2*_O2_BYTE] __attribute__((aligned(32)));
+	uint8_t mat_l1[_O1*_O1] __attribute__((aligned(32)));
+	uint8_t mat_l2[_O2*_O2] __attribute__((aligned(32)));
 	uint8_t temp_o1[_O1_BYTE] __attribute__((aligned(32))) = {0};
 	uint8_t temp_o2[_O2_BYTE] __attribute__((aligned(32)));
 	uint8_t vinegar[_V1_BYTE] __attribute__((aligned(32)));

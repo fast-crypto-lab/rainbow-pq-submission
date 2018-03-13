@@ -11,7 +11,7 @@
 int
 crypto_sign_keypair(unsigned char *pk, unsigned char *sk)
 {
-	rainbow_genkey(pk, (rainbow_key *)sk);
+	rainbow_genkey(pk, sk);
 	return 0;
 }
 

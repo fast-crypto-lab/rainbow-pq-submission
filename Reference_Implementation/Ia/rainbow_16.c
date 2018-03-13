@@ -176,12 +176,12 @@ void rainbow_central_map( uint8_t * r , const rainbow_ckey * k , const uint8_t *
 memcpy( r , a+_V1_BYTE , _PUB_M_BYTE );
 return;
 #endif
-	uint8_t mat1[_O2*_O2_BYTE] ;
+	uint8_t mat1[_O2*_O2] ;
 	uint8_t temp[_O2_BYTE] ;
 
 	gen_l1_mat( mat1 , k , a );
 
-	uint8_t mat2[_O2*_O2_BYTE] ;
+	uint8_t mat2[_O2*_O2] ;
 	transpose_l1( mat2 , mat1 );
 	gf16mat_prod( r , mat2 , _O1_BYTE , _O1 , a+_V1_BYTE );
 
@@ -240,14 +240,14 @@ unsigned rainbow_ivs_central_map( uint8_t * r , const rainbow_ckey * k , const u
 memcpy( r+_V1_BYTE , a , _PUB_M_BYTE );
 return 1;
 #endif
-	uint8_t mat1[_O1*_O1_BYTE] ;
+	uint8_t mat1[_O1*_O1] ;
 	uint8_t temp[_O1_BYTE] ;
 	mpkc_pub_map_gf16_n_m( temp , k->l1_vv , r , _V1 , _O1 );
 	gf256v_add( temp  , a , _O1_BYTE );
 	gen_l1_mat( mat1 , k , r );
 	unsigned r1 = linear_solver_l1( r+_V1_BYTE , mat1 , temp );
 
-	uint8_t mat2[_O2*_O2_BYTE] ;
+	uint8_t mat2[_O2*_O2] ;
 	uint8_t temp2[_O2_BYTE] ;
 	gen_l2_mat( mat2 , k , r );
 	mpkc_pub_map_gf16_n_m( temp2 , k->l2_vv , r , _V2 , _O2 );
@@ -267,8 +267,8 @@ int rainbow_sign( uint8_t * signature , const uint8_t * _sk , const uint8_t * _d
 	const rainbow_key * sk = (const rainbow_key *)_sk;
 	const rainbow_ckey * k = &( sk->ckey);
 //// line 1 - 5
-	uint8_t mat_l1[_O1*_O1_BYTE] ;
-	uint8_t mat_l2[_O2*_O2_BYTE] ;
+	uint8_t mat_l1[_O1*_O1] ;
+	uint8_t mat_l2[_O2*_O2] ;
 	uint8_t temp_o1[_O1_BYTE]  = {0};
 	uint8_t temp_o2[_O2_BYTE] ;
 	uint8_t vinegar[_V1_BYTE] ;

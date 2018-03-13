@@ -142,7 +142,7 @@ void mpkc_pub_map_gf16_avx2( uint8_t * z , const uint8_t * pk_mat , const uint8_
 		return;
 	}
 
-	uint8_t x[_PUB_N] __attribute__((aligned(32)));
+	uint8_t x[((_PUB_N+31)/32)*32] __attribute__((aligned(32)));
 	uint8_t r[((_PUB_M_BYTE+31)/32)*32] __attribute__((aligned(32))) = {0};
 	uint8_t tmp[((_PUB_M_BYTE+31)/32)*32] __attribute__((aligned(32)));
 	const unsigned n_var = _PUB_N;

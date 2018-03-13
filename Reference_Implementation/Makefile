@@ -3,13 +3,12 @@ CXX=   g++
 LD=    gcc
 
 
-#PROJ = amd64
 PROJ = Ia
 
 PROJ_DIR = ./$(PROJ)
 
 
-CFLAGS= -O2 -std=c11 -Wall -Wextra 
+CFLAGS= -O3 -std=c99 -Wall -Wextra
 INCPATH= -I/usr/local/include -I/opt/local/include -I/usr/include -I$(PROJ_DIR)
 LDFLAGS=
 LIBPATH= -L/usr/local/lib -L/opt/local/lib -L/usr/lib
@@ -40,11 +39,11 @@ EXE= PQCgenKAT_sign rainbow-genkey rainbow-sign rainbow-verify
 all: $(OBJ) $(EXE)
 
 
-#%-test: $(OBJ) %-test.o
-#	$(LD) $(LDFLAGS) $(LIBPATH) -o $@ $^ $(LIBS)
+%-test: $(OBJ) %-test.o
+	$(LD) $(LDFLAGS) $(LIBPATH) -o $@ $^ $(LIBS)
 
-#%-benchmark: $(OBJ) %-benchmark.o
-#	$(LD) $(LDFLAGS) $(LIBPATH) -o $@ $^ $(LIBS)
+%-benchmark: $(OBJ) %-benchmark.o
+	$(LD) $(LDFLAGS) $(LIBPATH) -o $@ $^ $(LIBS)
 
 rainbow-genkey: $(OBJ) rainbow-genkey.o
 	$(LD) $(LDFLAGS) $(LIBPATH) -o $@ $^ $(LIBS)
@@ -78,6 +77,4 @@ tables:
 	cd supplement; make
 
 clean:
-#	rm *.o *-test *-benchmark rainbow-genkey rainbow-sign rainbow-verify PQCgenKAT_sign;
-	rm *.o  rainbow-genkey rainbow-sign rainbow-verify  PQCgenKAT_sign
-
+	rm *.o *-test *-benchmark rainbow-genkey rainbow-sign rainbow-verify PQCgenKAT_sign;

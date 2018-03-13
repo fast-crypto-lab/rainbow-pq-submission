@@ -2,10 +2,10 @@
 #include <stdio.h>
 
 #include "rainbow_config.h"
-//#include "rainbow.h"
 
 #include "utils.h"
 #include "hash_utils.h"
+#include "string.h"
 
 #include "api.h"
 

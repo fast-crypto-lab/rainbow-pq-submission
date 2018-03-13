@@ -1,9 +1,9 @@
-#ifndef _RAINBOW_CONFIG_H_
-#define _RAINBOW_CONFIG_H_
+#ifndef _H_RAINBOW_CONFIG_H_
+#define _H_RAINBOW_CONFIG_H_
 
 
-//#define _RAINBOW_256_40_20_20_
 #define _RAINBOW_256_68_36_36_
+//#define _RAINBOW_256_68_36_36_
 //#define _RAINBOW_256_92_48_48_
 
 
