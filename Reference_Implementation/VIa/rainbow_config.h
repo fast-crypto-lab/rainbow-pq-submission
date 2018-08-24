@@ -4,9 +4,12 @@
 
 /// (32,32,32) (56,48,48) (76,64,64)
 
+
+#if (!defined(_RAINBOW16_32_32_32))&&(!defined(_RAINBOW16_56_48_48))&&(!defined(_RAINBOW16_76_64_64))
+//#define _RAINBOW16_32_32_32
 #define _RAINBOW16_76_64_64
-//#define _RAINBOW16_56_48_48
 //#define _RAINBOW16_76_64_64
+#endif
 
 
 #if defined _RAINBOW16_32_32_32

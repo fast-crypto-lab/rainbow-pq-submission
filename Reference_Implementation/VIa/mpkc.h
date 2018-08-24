@@ -10,6 +10,8 @@
 
 #include "rainbow_config.h"
 
+#include "assert.h"
+
 #ifndef TERMS_QUAD_POLY
 #define TERMS_QUAD_POLY(N) (((N)*(N+1)/2)+N)
 #endif

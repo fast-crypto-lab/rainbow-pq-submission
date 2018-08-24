@@ -45,22 +45,46 @@ void rainbow_pubmap_seckey( uint8_t * z , const rainbow_key * sk , const uint8_t
 }
 
 
+
+static void gen_mat_inv( uint8_t * s , uint8_t * inv_s , unsigned height ,  uint8_t * buffer )
+{
+	/// max trails: 128
+	for(unsigned i=0;i<128;i++) {
+		uint8_t r = gf256mat_rand_inv( s , inv_s , height , buffer );
+		if( 0 != r ) break;
+	}
+}
+
 #ifndef _DEBUG_RAINBOW_
 static
 #endif
 void rainbow_genkey_debug( rainbow_key * pk , rainbow_key * sk )
 {
+#ifdef _CONSISTENT_WITH_ALGO_6_
+	gen_mat_inv( pk->mat_s , sk->mat_s , _PUB_M , (uint8_t *)&sk->ckey );
+	gf256v_rand( pk->vec_s , _PUB_M );
+	memcpy( sk->vec_s , pk->vec_s , _PUB_M_BYTE );
+
+	gen_mat_inv( pk->mat_t , sk->mat_t , _PUB_N , (uint8_t *)&sk->ckey );
+	gf256v_rand( pk->vec_t , _PUB_N );
+	memcpy( sk->vec_t , pk->vec_t , _PUB_N_BYTE );
+
 	gf256v_rand( (uint8_t *)&sk->ckey , sizeof(rainbow_ckey) );
 	memcpy( (void *)&pk->ckey , (void *)&sk->ckey , sizeof(rainbow_ckey) );
+#else
+	gf256v_rand( (uint8_t *)&sk->ckey , sizeof(rainbow_ckey) );
 
-	gf256mat_rand_inv( pk->mat_s , sk->mat_s , _PUB_M );
-	gf256mat_rand_inv( pk->mat_t , sk->mat_t , _PUB_N );
+	gen_mat_inv( pk->mat_s , sk->mat_s , _PUB_M , (uint8_t *)&pk->ckey );
+	gen_mat_inv( pk->mat_t , sk->mat_t , _PUB_N , (uint8_t *)&pk->ckey );
 
 	gf256v_rand( pk->vec_t , _PUB_N );
 	memcpy( sk->vec_t , pk->vec_t , _PUB_N_BYTE );
 
 	gf256v_rand( pk->vec_s , _PUB_M );
 	memcpy( sk->vec_s , pk->vec_s , _PUB_M_BYTE );
+
+	memcpy( (void *)&pk->ckey , (void *)&sk->ckey , sizeof(rainbow_ckey) );
+#endif
 }
 
 
@@ -170,7 +194,7 @@ void rainbow_central_map( uint8_t * r , const rainbow_ckey * k , const uint8_t *
 memcpy( r , a+_V1 , _PUB_M );
 return;
 #endif
-	/// warning: asming _O2 > _O1
+	/// warning: presume: _O2 > _O1
 	uint8_t mat1[_O2*_O2] ;
 	uint8_t mat2[_O2*_O2] ;
 	uint8_t temp[_O2] ;
@@ -178,7 +202,6 @@ return;
 	gen_l1_mat( mat1 , k , a );
 	transpose_l1( mat2 , mat1 );
 	gf256mat_prod( r , mat2 , _O1 , _O1 , a+_V1 );
-	//memset(temp,0,20);
 	mpkc_pub_map_gf256_n_m( temp , k->l1_vv , a , _V1 , _O1 );
 	gf256v_add( r , temp , _O1 );
 
@@ -273,7 +296,10 @@ int rainbow_sign( uint8_t * signature , const uint8_t * _sk , const uint8_t * _d
 		gf256v_rand( vinegar , _V1 );
 		gen_l1_mat( mat_l1 , k , vinegar );
 
-		l1_succ = linear_solver_l1( temp_o1 , mat_l1 , temp_o1 );
+		// presuming: _O2*_O2 >= _O1*_O1
+		// check if full-ranked mat_l1
+		memcpy( mat_l2 , mat_l1 , _O1*_O1 );
+		l1_succ = gf256mat_gauss_elim( mat_l2 , _O1 , _O1 );
 		time ++;
 	}
 	uint8_t temp_vv1[_O1] ;

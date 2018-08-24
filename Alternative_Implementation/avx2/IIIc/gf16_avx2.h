@@ -1,11 +1,10 @@
 #ifndef _GF16_AVX2_H_
 #define _GF16_AVX2_H_
 
-#include <stdint.h>
-
-#include "gf16.h"
 
 #include "gf16_sse.h"
+
+#include "gf16_tabs.h"
 
 //extern const unsigned char __mask_low[];
 //extern const unsigned char __mask_16[];
@@ -16,46 +15,16 @@
 //extern const unsigned char __gf16_mulx2[];
 
 
+/// AVX2
 #include "immintrin.h"
 
-//////////////  GF(4)  /////////////////////////////
 
 
-static inline __m256i tbl32_gf4_x2( __m256i a )
+
+static inline __m256i linear_transform_8x8_256b( __m256i tab_l , __m256i tab_h , __m256i v , __m256i mask_f )
 {
-	__m256i m55 = _mm256_load_si256((__m256i const *)__mask_0x55 );
-	__m256i a0 = a&m55;
-	__m256i a1 = _mm256_srli_epi16(a,1)&m55;
-	__m256i a0_a1 = a0^a1;
-	return a1^_mm256_slli_epi16(a0_a1,1);
+	return _mm256_shuffle_epi8(tab_l,v&mask_f)^_mm256_shuffle_epi8(tab_h,_mm256_srli_epi16(v,4)&mask_f);
 }
-
-static inline __m256i tbl32_gf4_x3( __m256i a )
-{
-	__m256i m55 = _mm256_load_si256((__m256i const *)__mask_0x55 );
-	__m256i a0 = a&m55;
-	__m256i a1 = _mm256_srli_epi16(a,1)&m55;
-	__m256i a0_a1 = a0^a1;
-	return a0_a1^_mm256_slli_epi16(a0,1);
-}
-
-static inline __m256i _tbl32_gf4_mul( __m256i a , __m256i b0 , __m256i b1 )
-{
-	__m256i m55 = _mm256_load_si256((__m256i const *)__mask_0x55 );
-	__m256i a0 = a&m55;
-	__m256i a1 = _mm256_srli_epi16(a,1)&m55;
-	__m256i a0b0 = a0&b0;
-	__m256i ab1 = (a1&b0)^(a0&b1);
-	__m256i a1b1 = a1&b1;
-	return _mm256_slli_epi16(ab1^a1b1,1)^a0b0^a1b1;
-}
-
-static inline __m256i tbl32_gf4_mul( __m256i a , __m256i b )
-{
-	return _tbl32_gf4_mul( a , b , _mm256_srli_epi16(b,1) );
-}
-
-
 
 
 //////////////  GF(16)  /////////////////////////////
@@ -99,6 +68,10 @@ static inline __m256i tbl32_gf16_mul_log_log( __m256i loga , __m256i logb , __m2
 	return tbl32_gf16_exp( _mm256_sub_epi8(la_lb, mask_f&_mm256_cmpgt_epi8(la_lb,mask_f) ) );
 }
 
+static inline __m256i tbl32_gf16_mul( __m256i a , __m256i b )
+{
+	return tbl32_gf16_mul_log_log( tbl32_gf16_log(a) , tbl32_gf16_log(b) , _mm256_load_si256((__m256i const *)__mask_low ) );
+}
 
 
 /////////////////////////////  GF(256) ////////////////////////////////////////
@@ -111,7 +84,7 @@ static inline __m256i tbl32_gf256_mul_const( unsigned char a , __m256i b )
 	__m256i tab_l = _mm256_permute2x128_si256( tab , tab , 0 );
 	__m256i tab_h = _mm256_permute2x128_si256( tab , tab , 0x11 );
 
-	return _mm256_shuffle_epi8(tab_l,b&mask_f)^_mm256_shuffle_epi8(tab_h,_mm256_srli_epi16(b,4)&mask_f);
+	return linear_transform_8x8_256b( tab_l , tab_h , b , mask_f );
 }
 
 

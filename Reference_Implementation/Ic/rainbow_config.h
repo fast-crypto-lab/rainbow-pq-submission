@@ -2,9 +2,11 @@
 #define _H_RAINBOW_CONFIG_H_
 
 
+#if (!defined(_RAINBOW_256_40_20_20_))&&(!defined(_RAINBOW_256_68_36_36_))&&(!defined(_RAINBOW_256_92_48_48_))
 #define _RAINBOW_256_40_20_20_
 //#define _RAINBOW_256_68_36_36_
 //#define _RAINBOW_256_92_48_48_
+#endif
 
 
 #if defined _RAINBOW_256_40_20_20_
