@@ -666,6 +666,29 @@ unsigned gf16mat_gauss_elim_sse( uint8_t * mat , unsigned h , unsigned w )
 
 
 
+static inline
+unsigned gf16mat_solve_linear_eq_sse( uint8_t * sol , const uint8_t * inp_mat , const uint8_t * c_terms , unsigned n )
+{
+        assert( 64 >= n );
+
+	uint8_t mat[ 64*64 ] __attribute__((aligned(32)));
+	uint8_t _c[64] __attribute__((aligned(32)));
+	gf16v_split_sse( _c , c_terms , n );
+
+	unsigned n_byte = (n+1)>>1;
+	unsigned n_byte_32 = ((n_byte+1+31)>>5 ) <<5;
+
+	for(unsigned i=0;i<n;i++) {
+		for( unsigned j=0;j<n_byte;j++) mat[ i*n_byte_32+j ] = inp_mat[i*n_byte+j];
+		mat[i*n_byte_32+n_byte] = _c[i];
+	}
+	unsigned r8 = _gf16mat_gauss_elim_sse( mat , n , n_byte_32 );
+	for(unsigned i=0;i<n;i+=2) {
+		sol[i>>1] = mat[i*n_byte_32+n_byte]|(mat[(i+1)*n_byte_32+n_byte]<<4);
+	}
+	return r8;
+}
+
 
 
 
@@ -758,7 +781,7 @@ void gf256mat_prod_sse( uint8_t * c , const uint8_t * matA , unsigned n_A_vec_by
 static inline
 unsigned _gf256mat_gauss_elim_sse( uint8_t * mat , unsigned h , unsigned w )
 {
-	assert( 0 == (w%16) );
+	assert( 0 == (w&15) );
 	unsigned n_xmm = w>>4;
 
 	__m128i mask_0 = _mm_setzero_si128();
@@ -828,6 +851,24 @@ unsigned gf256mat_gauss_elim_sse( uint8_t * mat , unsigned h , unsigned w )
 	for(unsigned i=0;i<h;i++) for(unsigned j=0;j<w;j++) _mat[i*w_16+j] = mat[i*w+j];
 	unsigned r = _gf256mat_gauss_elim_sse( _mat , h , w_16 );
 	for(unsigned i=0;i<h;i++) for(unsigned j=0;j<w;j++) mat[i*w+j] = _mat[i*w_16+j];
+	return r;
+}
+
+
+static inline
+unsigned gf256mat_solve_linear_eq_sse( uint8_t * sol , const uint8_t * inp_mat , const uint8_t * c_terms, unsigned n )
+{
+	assert( 48 >= n );
+
+	uint8_t mat[48*64] __attribute__((aligned(32)));
+	unsigned mat_width = (((n+1)+15)>>4)<<4;
+
+	for(unsigned i=0;i<n;i++) {
+		for(unsigned j=0;j<n;j++) mat[i*mat_width+j] = inp_mat[i*n+j];
+		mat[i*mat_width+n] = c_terms[i];
+	}
+	unsigned r = _gf256mat_gauss_elim_sse( mat , n , mat_width );
+	for(unsigned i=0;i<n;i++) sol[i] = mat[i*mat_width+n];
 	return r;
 }
 

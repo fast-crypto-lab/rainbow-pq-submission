@@ -4,10 +4,7 @@
 
 #include "rainbow_config.h"
 
-#include "blas.h"
-
-//#define _DEBUG_MPKC_
-
+#include "stdint.h"
 
 #ifdef  __cplusplus
 extern  "C" {
@@ -47,19 +44,22 @@ typedef struct _rainbow_key rainbow_key;
 /// algorithm 6
 void rainbow_genkey( uint8_t * pk , uint8_t * sk );
 
-
-#include "mpkc.h"
-
-#define rainbow_pubmap mpkc_pub_map_gf16
+void rainbow_pubmap( uint8_t * z , const uint8_t * poly , const uint8_t * w );
 
 unsigned rainbow_secmap( uint8_t * w , const rainbow_key * sk , const uint8_t * z );
 
 
-//#define _DEBUG_MPKC_
+/// algorithm 7
+int rainbow_sign( uint8_t * signature , const uint8_t * sk , const uint8_t * digest );
 
-#define _DEBUG_RAINBOW_
+/// algorithm 8
+int rainbow_verify( const uint8_t * digest , const uint8_t * signature , const uint8_t * pk );
 
+
+
+//#define _DEBUG_RAINBOW_
 #ifdef _DEBUG_RAINBOW_
+/// private functions.
 
 /// algorithm 1
 unsigned rainbow_ivs_central_map( uint8_t * r , const rainbow_ckey * k , const uint8_t * a );
@@ -72,13 +72,6 @@ void rainbow_genkey_debug( rainbow_key * pk , rainbow_key * sk );
 
 #endif
 
-
-
-/// algorithm 7
-int rainbow_sign( uint8_t * signature , const uint8_t * sk , const uint8_t * digest );
-
-/// algorithm 8
-int rainbow_verify( const uint8_t * digest , const uint8_t * signature , const uint8_t * pk );
 
 
 

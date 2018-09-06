@@ -3,13 +3,11 @@
 #include <string.h>
 
 #include "rainbow_config.h"
-//#include "rainbow.h"
 
 #include "utils.h"
 #include "hash_utils.h"
 
 #include "api.h"
-
 
 int main( int argc , char ** argv )
 {

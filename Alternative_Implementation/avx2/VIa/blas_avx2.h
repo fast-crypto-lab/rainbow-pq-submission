@@ -344,6 +344,7 @@ static inline
 void gf16mat_prod_multab_avx2( uint8_t * c , const uint8_t * matA , unsigned n_A_vec_byte , unsigned n_A_width , const uint8_t * multab ) {
 	assert( n_A_width <= 256 );
 	assert( n_A_vec_byte <= 128 );
+	if( 16 >= n_A_vec_byte ) { return gf16mat_prod_multab_sse(c,matA,n_A_vec_byte,n_A_width,multab); }
 
 	__m256i mask_f = _mm256_load_si256( (__m256i*)__mask_low);
 
@@ -384,6 +385,7 @@ static inline
 void gf16mat_prod_avx2( uint8_t * c , const uint8_t * mat_a , unsigned a_h_byte , unsigned a_w , const uint8_t * b ) {
 	assert( a_w <= 256 );
 	assert( a_h_byte <= 128 );
+	if( 16 >= a_h_byte ) { return gf16mat_prod_sse(c,mat_a,a_h_byte,a_w,b); }
 
 	__m256i mask_f = _mm256_load_si256( (__m256i*)__mask_low);
 
@@ -438,6 +440,91 @@ void gf16mat_prod_avx2( uint8_t * c , const uint8_t * mat_a , unsigned a_h_byte 
 
 
 
+
+
+static inline
+uint8_t _if_zero_then_0xf(uint8_t p ) {
+	return (p-1)>>4;
+}
+
+static inline
+unsigned _linear_solver_32x32_avx2( uint8_t * r , const uint8_t * mat_32x32 , const uint8_t * cc )
+{
+
+	uint8_t mat[32*32] __attribute__((aligned(32)));
+	for(unsigned i=0;i<32;i++) gf16v_split_sse( mat + i*32 , mat_32x32 + i*16 , 32 );
+
+	__m256i mask_f = _mm256_load_si256((__m256i const *) __mask_low);
+
+	uint8_t temp[32] __attribute__((aligned(32)));
+	uint8_t pivots[32] __attribute__((aligned(32)));
+
+	uint8_t rr8 = 1;
+	for(unsigned i=0;i<32;i++) {
+		for(unsigned j=0;j<32;j++) pivots[j] = mat[j*32+i];
+			if( 0 == i ) {
+				gf16v_split_sse( temp , cc , 32 );
+				for(unsigned j=0;j<32;j++) mat[j*32] = temp[j];
+			}
+		__m256i rowi = _mm256_load_si256( (__m256i*)(mat+i*32) );
+		for(unsigned j=i+1;j<32;j++) {
+			temp[0] = _if_zero_then_0xf( pivots[i] );
+			__m256i mask_zero = _mm256_broadcastb_epi8(_mm_load_si128((__m128i*)temp));
+
+			__m256i rowj = _mm256_load_si256( (__m256i*)(mat+j*32) );
+			rowi ^= mask_zero&rowj;
+			//rowi ^= predicate_zero&(*(__m256i*)(mat+j*32));
+			pivots[i] ^= temp[0]&pivots[j];
+		}
+		uint8_t is_pi_nz = _if_zero_then_0xf(pivots[i]);
+		is_pi_nz = ~is_pi_nz;
+		rr8 &= is_pi_nz;
+
+		temp[0] = pivots[i];
+		__m128i inv_rowi = tbl_gf16_inv( _mm_load_si128((__m128i*)temp) );
+		pivots[i] = _mm_extract_epi8( inv_rowi , 0 );
+
+		__m256i log_pivots = tbl32_gf16_log( _mm256_load_si256( (__m256i*)pivots ) );
+		_mm256_store_si256( (__m256i*)pivots , log_pivots );
+
+		temp[0] = pivots[i];
+		__m256i logpi = _mm256_broadcastb_epi8( _mm_load_si128((__m128i*)temp) );
+		rowi = tbl32_gf16_mul_log( rowi , logpi , mask_f );
+		__m256i log_rowi = tbl32_gf16_log( rowi );
+		for(unsigned j=0;j<32;j++) {
+			if(i==j) {
+				_mm256_store_si256( (__m256i*)(mat+j*32) , rowi );
+				continue;
+			}
+			__m256i rowj = _mm256_load_si256( (__m256i*)(mat+j*32) );
+			temp[0] = pivots[j];
+			__m256i logpj = _mm256_broadcastb_epi8( _mm_load_si128((__m128i*)temp) );
+			rowj ^= tbl32_gf16_mul_log_log( log_rowi , logpj , mask_f );
+			_mm256_store_si256( (__m256i*)(mat+j*32) , rowj );
+		}
+	}
+
+	for(unsigned i=0;i<32;i+=2) {
+		//gf16v_set_ele( r , i , mat[i*32] );
+		r[i>>1] = mat[i*32]| (mat[(i+1)*32]<<4);
+	}
+	return rr8;
+}
+
+static inline
+unsigned gf16mat_solve_linear_eq_avx2( uint8_t * sol , const uint8_t * inp_mat , const uint8_t * c_terms , unsigned n )
+{
+	if( 32 == n ) {
+		return _linear_solver_32x32_avx2( sol , inp_mat , c_terms );
+	} else  {
+		return gf16mat_solve_linear_eq_sse( sol , inp_mat , c_terms , n );
+	}
+}
+
+
+
+
+
 ///////////////////////////////  GF( 256 ) ////////////////////////////////////////////////////
 
 
@@ -448,6 +535,7 @@ static inline
 void gf256mat_prod_multab_avx2( uint8_t * c , const uint8_t * matA , unsigned n_A_vec_byte , unsigned n_A_width , const uint8_t * multab ) {
 	assert( n_A_width <= 256 );
 	assert( n_A_vec_byte <= 256 );
+	if( 16 >= n_A_vec_byte ) { return gf256mat_prod_multab_sse(c,matA,n_A_vec_byte,n_A_width,multab); }
 
 	__m256i mask_f = _mm256_load_si256((__m256i const *) __mask_low);
 
@@ -489,6 +577,7 @@ static inline
 void gf256mat_prod_avx2( uint8_t * c , const uint8_t * matA , unsigned n_A_vec_byte , unsigned n_A_width , const uint8_t * b ) {
 	assert( n_A_width <= 256 );
 	assert( n_A_vec_byte <= 256 );
+	if( 16 >= n_A_vec_byte ) { return gf256mat_prod_sse(c,matA,n_A_vec_byte,n_A_width,b); }
 
 	__m256i mask_f = _mm256_load_si256( (__m256i*)__mask_low);
 

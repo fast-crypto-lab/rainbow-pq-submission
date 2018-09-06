@@ -8,7 +8,7 @@ PROJ = Ia
 PROJ_DIR = ./$(PROJ)
 
 
-CFLAGS= -O2 -std=c99 -Wall -Wextra
+CFLAGS= -O3 -std=c99 -Wall -Wextra
 INCPATH= -I/usr/local/include -I/opt/local/include -I/usr/include -I$(PROJ_DIR)
 LDFLAGS=
 LIBPATH= -L/usr/local/lib -L/opt/local/lib -L/usr/lib

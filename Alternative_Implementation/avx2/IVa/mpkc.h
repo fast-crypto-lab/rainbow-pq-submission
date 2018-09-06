@@ -1,31 +1,27 @@
-
 #ifndef _MPKC_H_
 #define _MPKC_H_
 
 
+#include "blas.h"
 
 
-#define IDX_XSQ(i,n_var) (((2*(n_var)+1-i)*(i)/2)+n_var)
-
-/// xi <= xj
-#define IDX_QTERMS_REVLEX(xi,xj) ((xj)*(xj+1)/2 + (xi))
+#ifndef TERMS_QUAD_POLY
+#define TERMS_QUAD_POLY(N) (((N)*(N+1)/2)+N+1)
+#endif
 
 
 
 #ifdef _BLAS_AVX2_
-
 #include "mpkc_avx2.h"
-
-#define mpkc_pub_map_gf16       mpkc_pub_map_gf16_avx2
-#define mpkc_pub_map_gf16_n_m   mpkc_pub_map_gf16_n_m_avx2
-
+#define gf16mpkc_mq_eval_n_m   gf16mpkc_mq_eval_n_m_avx2
+#define gf16mpkc_mq_multab_n_m   gf16mpkc_mq_multab_n_m_avx2
+#elif defined(_BLAS_SSE_)
+#include "mpkc_sse.h"
+#define gf16mpkc_mq_eval_n_m   gf16mpkc_mq_eval_n_m_sse
+#define gf16mpkc_mq_multab_n_m   gf16mpkc_mq_multab_n_m_sse
 #else
-
-#define mpkc_pub_map_gf16       _mpkc_pub_map_gf16
-#define mpkc_pub_map_gf16_n_m   _mpkc_pub_map_gf16_n_m
-
+error here.
 #endif
-
 
 
 
@@ -35,13 +31,10 @@ extern  "C" {
 #endif
 
 
+void _gf16mpkc_mq_eval_n_m( uint8_t * z , const uint8_t * pk_mat , const uint8_t * w , unsigned n, unsigned m );
 
+void _gf16mpkc_interpolate_n_m( uint8_t * poly , void (*quad_poly)(void *,const void *,const void *) , const void * key , unsigned n , unsigned m );
 
-void _mpkc_pub_map_gf16( uint8_t * z , const uint8_t * pk_mat , const uint8_t * w );
-
-void _mpkc_pub_map_gf16_n_m( uint8_t * z , const uint8_t * pk_mat , const uint8_t * w , unsigned n, unsigned m );
-
-void mpkc_interpolate_gf16( uint8_t * poly , void (*quad_poly)(void *,const void *,const void *) , const void * key );
 
 
 #ifdef  __cplusplus

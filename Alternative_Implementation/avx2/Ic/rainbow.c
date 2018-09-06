@@ -13,10 +13,25 @@
 
 #include "string.h"
 
-//#define _DEBUG_MPKC_
 
 
 #ifdef _RAINBOW_256
+
+
+#include "mpkc.h"
+
+void rainbow_pubmap( uint8_t * z , const uint8_t * poly , const uint8_t * w )
+{
+	//gf256mpkc_mq_eval_n_m( z , poly , w , _PUB_N , _PUB_M );
+	gf256mpkc_pub_map_n_m_avx2( z , poly , w , _PUB_N , _PUB_M );
+}
+
+static void mpkc_interpolate_gf256( uint8_t * poly , void (*quad_poly)(void *,const void *,const void *) , const void * key )
+{
+	_gf256mpkc_interpolate_n_m( poly , quad_poly , key , _PUB_N , _PUB_M );
+}
+
+
 
 
 #ifndef _DEBUG_RAINBOW_
@@ -152,21 +167,11 @@ unsigned rainbow_secmap( uint8_t * w , const rainbow_key * sk , const uint8_t * 
 
 
 static inline
-void transpose_l1( uint8_t * r , const uint8_t * a )
+void matrix_transpose( uint8_t * r , const uint8_t * a , unsigned n )
 {
-	for(unsigned i=0;i<_O1;i++) {
-		for(unsigned j=0;j<_O1;j++) {
-			r[i*_O1+j] = a[j*_O1+i];
-		}
-	}
-}
-
-static inline
-void transpose_l2( uint8_t * r , const uint8_t * a )
-{
-	for(unsigned i=0;i<_O2;i++) {
-		for(unsigned j=0;j<_O2;j++) {
-			r[i*_O2+j] = a[j*_O2+i];
+	for(unsigned i=0;i<n;i++) {
+		for(unsigned j=0;j<n;j++) {
+			r[i*n+j] = a[j*n+i];
 		}
 	}
 }
@@ -196,10 +201,7 @@ void gen_l2_mat_multab( uint8_t * mat , const rainbow_ckey * k , const uint8_t *
 static
 #endif
 void rainbow_central_map( uint8_t * r , const rainbow_ckey * k , const uint8_t * a ) {
-#ifdef _DEBUG_MPKC_
-memcpy( r , a+_V1 , _PUB_M );
-return;
-#endif
+
 	/// warning: asming _O2 > _O1
 	uint8_t mat1[_O2*_O2] __attribute__((aligned(32)));
 	uint8_t mat2[_O2*_O2] __attribute__((aligned(32)));
@@ -208,53 +210,16 @@ return;
 	uint8_t multab[_V2*32] __attribute__((aligned(32)));
 	gf256v_generate_multab_sse( multab , a , _V2 );
 	gen_l1_mat_multab( mat1 , k , multab );
-	transpose_l1( mat2 , mat1 );
-	//gf256mat_prod( r , mat2 , _O1 , _O1 , a+_V1 );
+	matrix_transpose( mat2 , mat1 , _O1 );
 	gf256mat_prod_multab_avx2( r , mat2 , _O1 , _O1 , multab+(_V1*32) );
-	//mpkc_pub_map_gf256_n_m( temp , k->l1_vv , a , _V1 , _O1 );
-	mq_gf256_multab_n_m_avx2( temp , k->l1_vv , multab , _V1 , _O1 );
+	gf256mpkc_mq_multab_n_m( temp , k->l1_vv , multab , _V1 , _O1 );
 	gf256v_add( r , temp , _O1 );
 
 	gen_l2_mat_multab( mat1 , k , multab );
-	transpose_l2( mat2 , mat1 );
+	matrix_transpose( mat2 , mat1 , _O2 );
 	gf256mat_prod( r+_O1 , mat2 , _O2 , _O2 , a+_V2 );
-	//mpkc_pub_map_gf256_n_m( temp , k->l2_vv , a , _V2 , _O2 );
-	mq_gf256_multab_n_m_avx2( temp , k->l2_vv , multab , _V2 , _O2 );
+	gf256mpkc_mq_multab_n_m( temp , k->l2_vv , multab , _V2 , _O2 );
 	gf256v_add( r+_O1 , temp , _O2 );
-
-}
-
-
-#define _O1_W (_O1+1)
-#define _O2_W (_O2+1)
-
-
-static inline
-unsigned linear_solver_l1( uint8_t * r , const uint8_t * mat_inp , const uint8_t * cc )
-{
-	uint8_t mat[_O1_W*_O1] __attribute__((aligned(32)));
-	for(unsigned i=0;i<_O1;i++) {
-		memcpy( mat+i*_O1_W , mat_inp+i*_O1 , _O1 );
-		mat[i*_O1_W + _O1] = cc[i];
-	}
-
-	unsigned rv = gf256mat_gauss_elim( mat , _O1 , _O1_W );
-	gf256mat_submat( r , 1 , _O1 , mat , _O1_W , _O1 );
-	return rv;
-}
-
-
-static inline
-unsigned linear_solver_l2( uint8_t * r , const uint8_t * mat_inp , const uint8_t * cc ) {
-	uint8_t mat[_O2_W*_O2] __attribute__((aligned(32)));
-	for(unsigned i=0;i<_O2;i++) {
-		memcpy( mat+i*_O2_W , mat_inp+i*_O2 , _O2 );
-		mat[i*_O2_W + _O2] = cc[i];
-	}
-
-	unsigned rv = gf256mat_gauss_elim( mat , _O2 , _O2_W );
-	gf256mat_submat( r , 1 , _O2 , mat , _O2_W , _O2 );
-	return rv;
 
 }
 
@@ -263,11 +228,8 @@ unsigned linear_solver_l2( uint8_t * r , const uint8_t * mat_inp , const uint8_t
 #ifndef _DEBUG_RAINBOW_
 static
 #endif
-unsigned rainbow_ivs_central_map( uint8_t * r , const rainbow_ckey * k , const uint8_t * a ) {
-#ifdef _DEBUG_MPKC_
-memcpy( r+_V1 , a , _PUB_M );
-return;
-#endif
+unsigned rainbow_ivs_central_map( uint8_t * r , const rainbow_ckey * k , const uint8_t * a )
+{
 	uint8_t mat1[_O1*_O1] __attribute__((aligned(32)));
 	uint8_t mat2[_O2*_O2] __attribute__((aligned(32)));
 	uint8_t temp[_O2] __attribute__((aligned(32)));
@@ -275,16 +237,16 @@ return;
 	uint8_t multab[_V2*32] __attribute__((aligned(32)));
 	gf256v_generate_multab_sse( multab , r , _V1 );
 
-	mq_gf256_multab_n_m_avx2( temp , k->l1_vv , multab , _V1 , _O1 );
+	gf256mpkc_mq_multab_n_m( temp , k->l1_vv , multab , _V1 , _O1 );
 	gf256v_add( temp  , a , _O1 );
 	gen_l1_mat_multab( mat1 , k , multab );
-	unsigned r1 = linear_solver_l1( r+_V1 , mat1 , temp );
+	unsigned r1 = gf256mat_solve_linear_eq( r+_V1 , mat1 , temp , _O1 );
 
 	gf256v_generate_multab_sse( multab+(_V1*32) , r+_V1 , _O1 );
 	gen_l2_mat_multab( mat2 , k , multab );
-	mq_gf256_multab_n_m_avx2( temp , k->l2_vv , multab , _V2 , _O2 );
+	gf256mpkc_mq_multab_n_m( temp , k->l2_vv , multab , _V2 , _O2 );
 	gf256v_add( temp  , a+_O1 , _O2 );
-	unsigned r2 = linear_solver_l2( r+_V2 , mat2 , temp );
+	unsigned r2 = gf256mat_solve_linear_eq( r+_V2 , mat2 , temp , _O2 );
 
 	return r1&r2;
 }
@@ -324,12 +286,10 @@ int rainbow_sign( uint8_t * signature , const uint8_t * _sk , const uint8_t * _d
 		// check if full-ranked mat_l1
 		memcpy( mat_l2 , mat_l1 , _O1*_O1 );
 		l1_succ = gf256mat_gauss_elim( mat_l2 , _O1 , _O1 );
-		//l1_succ = linear_solver_l1( temp_o1 , mat_l1 , temp_o1 );
 		time ++;
 	}
 	uint8_t temp_vv1[_O1] __attribute__((aligned(32)));
-	mq_gf256_multab_n_m_avx2( temp_vv1 , k->l1_vv , multab , _V1 , _O1 );
-	//mpkc_pub_map_gf256_n_m( temp_vv1 , k->l1_vv , vinegar , _V1 , _O1 );
+	gf256mpkc_mq_multab_n_m( temp_vv1 , k->l1_vv , multab , _V1 , _O1 );
 
 //// line 7 - 14
 	uint8_t _z[_PUB_N_BYTE] __attribute__((aligned(32)));
@@ -355,15 +315,13 @@ int rainbow_sign( uint8_t * signature , const uint8_t * _sk , const uint8_t * _d
 
 		memcpy( temp_o1 , temp_vv1 , _O1 );
 		gf256v_add( temp_o1 , y , _O1 );
-		linear_solver_l1( x + _V1 , mat_l1 , temp_o1 );
+		gf256mat_solve_linear_eq( x + _V1 , mat_l1 , temp_o1 , _O1 );
 
-		//gf256v_generate_multab_sse( multab , x , _V2 );
 		gf256v_generate_multab_sse( multab+(_V1*32) , x+_V1 , _O1 );
 		gen_l2_mat_multab( mat_l2 , k , multab );
-		mq_gf256_multab_n_m_avx2( temp_o2 , k->l2_vv , multab , _V2 , _O2 );
-		//mpkc_pub_map_gf256_n_m( temp_o2 , k->l2_vv , x , _V2 , _O2 );
+		gf256mpkc_mq_multab_n_m( temp_o2 , k->l2_vv , multab , _V2 , _O2 );
 		gf256v_add( temp_o2 , y+_O1 , _O2 );
-		succ = linear_solver_l2( x + _V2 , mat_l2 , temp_o2 );  /// line 13
+		succ = gf256mat_solve_linear_eq( x + _V2 , mat_l2 , temp_o2 , _O2 );  /// line 13
 
 		time ++;
 	};

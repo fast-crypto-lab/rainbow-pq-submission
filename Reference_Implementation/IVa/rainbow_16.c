@@ -15,6 +15,20 @@
 #ifdef _RAINBOW_16
 
 
+#include "mpkc.h"
+
+void rainbow_pubmap( uint8_t * z , const uint8_t * poly , const uint8_t * w )
+{
+	gf16mpkc_mq_eval_n_m( z , poly , w , _PUB_N , _PUB_M );
+}
+
+static void mpkc_interpolate_gf16( uint8_t * poly , void (*quad_poly)(void *,const void *,const void *) , const void * key )
+{
+	_gf16mpkc_interpolate_n_m( poly , quad_poly , key , _PUB_N , _PUB_M );
+}
+
+
+
 
 #ifndef _DEBUG_RAINBOW_
 
@@ -184,48 +198,17 @@ return;
 	gen_l1_mat( mat1 , k , a );
 
 	gf16rowmat_prod( r , mat1 , _O1 , _O1_BYTE , a+_V1_BYTE );
-	mpkc_pub_map_gf16_n_m( temp , k->l1_vv , a , _V1 , _O1 );
+	gf16mpkc_mq_eval_n_m( temp , k->l1_vv , a , _V1 , _O1 );
 	gf256v_add( r , temp , _O1_BYTE );
 
 	gen_l2_mat( mat1 , k , a );
 
 	gf16rowmat_prod( r+_O1_BYTE , mat1 , _O2 , _O2_BYTE , a+_V2_BYTE );
-	mpkc_pub_map_gf16_n_m( temp , k->l2_vv , a , _V2 , _O2 );
+	gf16mpkc_mq_eval_n_m( temp , k->l2_vv , a , _V2 , _O2 );
 	gf256v_add( r+_O1_BYTE , temp , _O2_BYTE );
 
 }
 
-
-
-static inline
-unsigned linear_solver_l1( uint8_t * r , const uint8_t * mat_32x32 , const uint8_t * cc )
-{
-	uint8_t mat[_O1*(_O1_BYTE+1)] ;
-	for(unsigned i=0;i<_O1;i++) {
-		memcpy( mat + i*(_O1_BYTE+1) , mat_32x32 + i*(_O1_BYTE) , _O1_BYTE );
-		mat[i*(_O1_BYTE+1)+_O1_BYTE] = gf16v_get_ele( cc , i );
-	}
-	unsigned r8 = gf16mat_gauss_elim( mat , _O1 , _O1+2 );
-	for(unsigned i=0;i<_O1;i++) {
-		gf16v_set_ele( r , i , mat[i*(_O1_BYTE+1)+_O1_BYTE] );
-	}
-	return r8;
-}
-
-static inline
-unsigned linear_solver_l2( uint8_t * r , const uint8_t * mat_32x32 , const uint8_t * cc )
-{
-	uint8_t mat[_O2*(_O2_BYTE+1)] ;
-	for(unsigned i=0;i<_O2;i++) {
-		memcpy( mat + i*(_O2_BYTE+1) , mat_32x32 + i*(_O2_BYTE) , _O2_BYTE );
-		mat[i*(_O2_BYTE+1)+_O2_BYTE] = gf16v_get_ele( cc , i );
-	}
-	unsigned r8 = gf16mat_gauss_elim( mat , _O2 , _O2+2 );
-	for(unsigned i=0;i<_O2;i++) {
-		gf16v_set_ele( r , i , mat[i*(_O2_BYTE+1)+_O2_BYTE] );
-	}
-	return r8;
-}
 
 
 
@@ -239,17 +222,17 @@ return 1;
 #endif
 	uint8_t mat1[_O1*_O1] ;
 	uint8_t temp[_O1_BYTE] ;
-	mpkc_pub_map_gf16_n_m( temp , k->l1_vv , r , _V1 , _O1 );
+	gf16mpkc_mq_eval_n_m( temp , k->l1_vv , r , _V1 , _O1 );
 	gf256v_add( temp  , a , _O1_BYTE );
 	gen_l1_mat( mat1 , k , r );
-	unsigned r1 = linear_solver_l1( r+_V1_BYTE , mat1 , temp );
+	unsigned r1 = gf16mat_solve_linear_eq( r+_V1_BYTE , mat1 , temp , _O1 );
 
 	uint8_t mat2[_O2*_O2] ;
 	uint8_t temp2[_O2_BYTE] ;
 	gen_l2_mat( mat2 , k , r );
-	mpkc_pub_map_gf16_n_m( temp2 , k->l2_vv , r , _V2 , _O2 );
+	gf16mpkc_mq_eval_n_m( temp2 , k->l2_vv , r , _V2 , _O2 );
 	gf256v_add( temp2  , a+_O1_BYTE , _O2_BYTE );
-	unsigned r2 = linear_solver_l2( r+_V2_BYTE , mat2 , temp2 );
+	unsigned r2 = gf16mat_solve_linear_eq( r+_V2_BYTE , mat2 , temp2 , _O2 );
 
 	return r1&r2;
 }
@@ -280,11 +263,10 @@ int rainbow_sign( uint8_t * signature , const uint8_t * _sk , const uint8_t * _d
 		// check if full-ranked mat_l1
 		memcpy( mat_l2 , mat_l1 , _O1*_O1_BYTE );
 		l1_succ = gf16mat_gauss_elim( mat_l2 , _O1 , _O1 );
-		//l1_succ = linear_solver_l1( temp_o1 , mat_l1 , temp_o1 );
 		time ++;
 	}
 	uint8_t temp_vv1[_O1_BYTE] ;
-	mpkc_pub_map_gf16_n_m( temp_vv1 , k->l1_vv , vinegar , _V1 , _O1 );
+	gf16mpkc_mq_eval_n_m( temp_vv1 , k->l1_vv , vinegar , _V1 , _O1 );
 
 	//// line 7 - 14
 	uint8_t _z[_PUB_M_BYTE] ;
@@ -308,12 +290,12 @@ int rainbow_sign( uint8_t * signature , const uint8_t * _sk , const uint8_t * _d
 
 		memcpy( temp_o1 , temp_vv1 , _O1_BYTE );
 		gf256v_add( temp_o1 , y , _O1_BYTE );
-		linear_solver_l1( x + _V1_BYTE , mat_l1 , temp_o1 );
+		gf16mat_solve_linear_eq( x + _V1_BYTE , mat_l1 , temp_o1 , _O1 );
 
 		gen_l2_mat( mat_l2 , k , x );
-		mpkc_pub_map_gf16_n_m( temp_o2 , k->l2_vv , x , _V2 , _O2 );
+		gf16mpkc_mq_eval_n_m( temp_o2 , k->l2_vv , x , _V2 , _O2 );
 		gf256v_add( temp_o2 , y+_O1_BYTE , _O2_BYTE );
-		succ = linear_solver_l2( x + _V2_BYTE , mat_l2 , temp_o2 );  /// line 13
+		succ = gf16mat_solve_linear_eq( x + _V2_BYTE , mat_l2 , temp_o2 , _O2 );  /// line 13
 
 		time ++;
 	};
