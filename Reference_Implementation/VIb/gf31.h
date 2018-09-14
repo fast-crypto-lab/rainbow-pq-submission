@@ -10,7 +10,8 @@ extern  "C" {
 
 static inline unsigned char gf31_is_nonzero( unsigned char a )
 {
-	unsigned char a5 = (a&0x1f)-1;                                                                                                                                                 a5 = ~a5;
+	unsigned char a5 = (a&0x1f)-1;
+	a5 = ~a5;
 	return (a5>>7)&1;
 }
 

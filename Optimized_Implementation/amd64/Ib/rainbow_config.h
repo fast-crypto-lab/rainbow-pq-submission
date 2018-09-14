@@ -3,9 +3,9 @@
 
 /// (36,28,28) (64,32,48) (84,56,56)
 
+#if (!(defined(_RAINBOW31_36_28_28)||defined(_RAINBOW31_64_32_48)||defined(_RAINBOW31_84_56_56)))
 #define _RAINBOW31_36_28_28
-//#define _RAINBOW31_64_32_48
-//#define _RAINBOW31_84_56_56
+#endif
 
 
 #if defined _RAINBOW31_36_28_28

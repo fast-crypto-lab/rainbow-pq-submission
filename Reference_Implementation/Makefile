@@ -2,8 +2,9 @@ CC=    gcc
 CXX=   g++
 LD=    gcc
 
-
+ifndef PROJ
 PROJ = Ia
+endif
 
 PROJ_DIR = ./$(PROJ)
 

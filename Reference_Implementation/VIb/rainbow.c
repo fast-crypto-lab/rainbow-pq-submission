@@ -5,7 +5,7 @@
 
 #include "gf31.h"
 
-#include "blas.h"
+#include "blas.h"   /// #define _TWO_COL_MAT_
 
 #include "stdint.h"
 
@@ -13,11 +13,28 @@
 
 #include "string.h"
 
+#include "mpkc.h"
 
-/*
-The macro _TWO_COL_MAT_ has been defined in blas_config.h
-*/
 
+
+static inline
+void mpkc_pub_map_gf31_n_m( uint8_t * z , const uint8_t * pk_mat , const uint8_t * w , unsigned n, unsigned m)
+{
+	gf31mpkc_mq_eval_n_m( z , pk_mat , w , n , m );
+}
+
+
+static inline
+void mpkc_interpolate_gf31( uint8_t * poly , void (*quad_poly)(void *,const void *,const void *) , const void * key )
+{
+	gf31mpkc_interpolate_n_m( poly , quad_poly , key , _PUB_N , _PUB_M );
+}
+
+
+void rainbow_pubmap( uint8_t * z , const uint8_t * pk_mat , const uint8_t * w )
+{
+	gf31mpkc_mq_eval_n_m( z , pk_mat , w , _PUB_N , _PUB_M );
+}
 
 
 
@@ -47,16 +64,25 @@ void rainbow_pubmap_seckey( uint8_t * z , const rainbow_key * sk , const uint8_t
 }
 
 
+static void gen_mat_inv( uint8_t * s , uint8_t * inv_s , unsigned height , uint8_t * buffer )
+{
+	/// max trails: 128
+	for(unsigned i=0;i<128;i++) {
+		uint8_t r = gf31mat_rand_inv( s , inv_s , height , buffer );
+		if( 0 != r ) break;
+	}
+}
+
+
 #ifndef _DEBUG_RAINBOW_
 static
 #endif
 void rainbow_genkey_debug( rainbow_key * pk , rainbow_key * sk )
 {
 	gf31v_rand( (uint8_t *)&sk->ckey , sizeof(rainbow_ckey) );
+	gen_mat_inv( pk->mat_s , sk->mat_s , _PUB_M , (uint8_t*)&pk->ckey );
+	gen_mat_inv( pk->mat_t , sk->mat_t , _PUB_N , (uint8_t*)&pk->ckey );
 	memcpy( (void *)&pk->ckey , (void *)&sk->ckey , sizeof(rainbow_ckey) );
-
-	gf31mat_rand_inv( pk->mat_s , sk->mat_s , _PUB_M );
-	gf31mat_rand_inv( pk->mat_t , sk->mat_t , _PUB_N );
 #ifdef _TWO_COL_MAT_
 	to_maddusb_format( pk->mat_s , pk->mat_s ,_PUB_M , _PUB_M );
 	to_maddusb_format( sk->mat_s , sk->mat_s ,_PUB_M , _PUB_M );
@@ -68,12 +94,11 @@ void rainbow_genkey_debug( rainbow_key * pk , rainbow_key * sk )
 	memcpy( sk->vec_t , pk->vec_t , _PUB_N );
 
 	gf31v_rand( pk->vec_s , _PUB_M );
-	memcpy( sk->vec_s , pk->vec_s , _PUB_N );
+	memcpy( sk->vec_s , pk->vec_s , _PUB_M );
 }
 
 
 
-#include "mpkc.h"
 
 static inline
 void rainbow_pubmap_wrapper( void * z, const void* pk_key, const void * w) {
